@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>4:6 黄金比率コーヒー</title>
-<meta name="description" content="豆量・味・濃さを選ぶだけ。粕谷哲の4:6メソッド（ホット／急冷式アイス）の注湯スケジュールが一瞬で出る、音声ガイド付きコーヒーアプリ。" />
+<meta name="description" content="豆量・味・濃さを選ぶだけ。粕谷哲の4:6メソッド（ホット／急冷式アイス）の注湯スケジュールが一瞬で出る、ガイドタイマー付きコーヒーアプリ。" />
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest" />
@@ -182,14 +182,9 @@
   .brew-note{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line-strong);font-size:11.5px;line-height:1.6;color:var(--ink-faint);font-weight:600;display:flex;gap:7px;align-items:flex-start;}
   .brew-note .ic{flex:none;}
 
-  /* ---------- Bottom dock (audio + start) ---------- */
+  /* ---------- Bottom dock (start) ---------- */
   .dock{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:12px 18px calc(var(--safe-bottom) + 14px);background:linear-gradient(to top,var(--bg-grad-b) 66%,rgba(239,230,215,0));pointer-events:none;}
   .dock-inner{max-width:480px;margin:0 auto;pointer-events:auto;}
-  .audio-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;background:var(--card);border-radius:14px;padding:8px 8px 8px 14px;box-shadow:var(--shadow-sm);border:1px solid var(--line);}
-  .audio-row .al{font-size:11.5px;font-weight:700;color:var(--ink-soft);flex:none;letter-spacing:.3px;}
-  .audio-seg{display:flex;gap:6px;margin-left:auto;}
-  .audio-seg button{padding:8px 13px;border-radius:10px;font-size:12.5px;font-weight:800;background:var(--card-soft);border:1.5px solid var(--line);color:var(--ink-soft);}
-  .audio-seg button[aria-checked="true"]{background:var(--coffee);color:#fff;border-color:var(--coffee);}
   .brew-btn{width:100%;min-height:56px;padding:18px;border-radius:18px;background:linear-gradient(155deg,var(--btn-a),var(--btn-b));color:#fff;font-size:18px;font-weight:800;letter-spacing:2px;box-shadow:0 12px 26px rgba(40,30,20,.32),inset 0 1px 0 rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .08s ease;}
   .brew-btn:active{transform:translateY(2px) scale(.99);}
   .brew-btn .play{font-size:15px;}
@@ -336,13 +331,6 @@
 <!-- Bottom dock -->
 <div class="dock" id="dock" style="display:none;">
   <div class="dock-inner">
-    <div class="audio-row">
-      <span class="al">通知</span>
-      <div class="audio-seg" id="audioSeg" role="radiogroup" aria-label="通知の方法">
-        <button role="radio" aria-checked="true" data-audio="chime">🔔 チャイム</button>
-        <button role="radio" aria-checked="false" data-audio="voice">🗣 声ガイド</button>
-      </div>
-    </div>
     <button class="brew-btn" id="brewBtn"><span class="play" aria-hidden="true">▶</span> スタート</button>
   </div>
 </div>
@@ -389,11 +377,10 @@
 (function(){
   "use strict";
   var MIN=8, MAX=60;
-  var TASTES={acidic:1,balance:1,sweet:1}, STR={light:1,strong:1}, MODES={hot:1,ice:1}, AUDIO={chime:1,voice:1};
-  var NUMJP=['','一','二','三','四','五','六','七'];
+  var TASTES={acidic:1,balance:1,sweet:1}, STR={light:1,strong:1}, MODES={hot:1,ice:1};
 
   var state = {
-    mode:'hot', audio:'chime',
+    mode:'hot',
     hot:{beans:20,taste:'balance',strength:'strong'},
     ice:{beans:20,taste:'balance',strength:'strong'}
   };
@@ -403,7 +390,6 @@
   try{
     var sv=JSON.parse(localStorage.getItem('coffee46_v2')||'null');
     if(sv && typeof sv==='object'){
-      if(AUDIO[sv.audio]) state.audio=sv.audio;
       ['hot','ice'].forEach(function(m){
         if(sv[m]){ state[m].beans=clampBeans(sv[m].beans); if(TASTES[sv[m].taste])state[m].taste=sv[m].taste; if(STR[sv[m].strength])state[m].strength=sv[m].strength; }
       });
@@ -478,13 +464,11 @@
   document.querySelectorAll('#presets .preset').forEach(function(b){ b.addEventListener('click',function(){ if(setBean(+b.dataset.g)) haptic(10); }); });
   document.querySelectorAll('#tasteSeg .opt').forEach(function(b){ b.addEventListener('click',function(){ cur().taste=b.dataset.taste; document.querySelectorAll('#tasteSeg .opt').forEach(function(x){x.setAttribute('aria-checked',x===b?'true':'false');}); renderSched(); haptic(10); }); });
   document.querySelectorAll('#strengthSeg .opt').forEach(function(b){ b.addEventListener('click',function(){ cur().strength=b.dataset.strength; document.querySelectorAll('#strengthSeg .opt').forEach(function(x){x.setAttribute('aria-checked',x===b?'true':'false');}); renderSched(); haptic(10); }); });
-  document.querySelectorAll('#audioSeg button').forEach(function(b){ b.addEventListener('click',function(){ state.audio=b.dataset.audio; document.querySelectorAll('#audioSeg button').forEach(function(x){x.setAttribute('aria-checked',x===b?'true':'false');}); save(); haptic(8); if(state.audio==='voice'){ ensureAudio(); primeVoice(); } }); });
 
   function syncControls(){
     var s=cur();
     document.querySelectorAll('#tasteSeg .opt').forEach(function(x){x.setAttribute('aria-checked',x.dataset.taste===s.taste?'true':'false');});
     document.querySelectorAll('#strengthSeg .opt').forEach(function(x){x.setAttribute('aria-checked',x.dataset.strength===s.strength?'true':'false');});
-    document.querySelectorAll('#audioSeg button').forEach(function(x){x.setAttribute('aria-checked',x.dataset.audio===state.audio?'true':'false');});
     syncPresets(); updateBounds();
   }
 
@@ -519,7 +503,7 @@
   $('pickIce').addEventListener('click',function(){ pushScreen({screen:'setup',mode:'ice'}, function(){ showSetupOnly('ice'); }); });
   $('backBtn').addEventListener('click', goBack);
 
-  // ---------- Audio: chime + voice ----------
+  // ---------- Audio: chime ----------
   var audioCtx=null;
   function ensureAudio(){ if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(audioCtx&&(audioCtx.state==='suspended'||audioCtx.state==='interrupted')){ try{ audioCtx.resume(); }catch(e){} } }
   function bell(freq,start,dur,vol){
@@ -542,25 +526,12 @@
     else if(type==='done'){ bell(523.25,0,0.8,0.18); bell(659.25,0.12,0.9,0.17); bell(783.99,0.24,1.0,0.17); bell(1046.5,0.36,1.5,0.17); }
     else { bell(783.99,0,0.66,0.20); bell(1174.7,0.085,0.78,0.14); } // gentle G5+D6
   }
-  // voice
-  var voices=[], jaVoice=null;
-  function loadVoices(){ try{ voices=speechSynthesis.getVoices(); jaVoice = voices.filter(function(v){return /ja(-|_)?JP/i.test(v.lang);})[0] || voices.filter(function(v){return /Japanese|Kyoko|O-ren|Hattori|Otoya/i.test(v.name||'');})[0] || null; }catch(e){} }
-  if('speechSynthesis' in window){ loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(e){} }
-  function speak(text){ if(!('speechSynthesis' in window)) return; try{ var u=new SpeechSynthesisUtterance(text); u.lang='ja-JP'; if(jaVoice)u.voice=jaVoice; u.rate=1.02; u.pitch=1.05; u.volume=1; speechSynthesis.speak(u); }catch(e){} }
-  function primeVoice(){ if(!('speechSynthesis' in window)) return; try{ var u=new SpeechSynthesisUtterance('　'); u.volume=0; speechSynthesis.speak(u); }catch(e){} }
   function haptic(ms){ if(navigator.vibrate){ try{ navigator.vibrate(ms); }catch(e){} } }
 
   function cue(row,isLast){
     ensureAudio(); // self-heal AudioContext if iOS suspended it during a lock
     chime(isLast?'last':'pour');
     haptic([0,60,40,90]);
-    if(state.audio==='voice'){
-      var w;
-      if(row.idx===1) w = (T.recipe.mode==='ice') ? '一投目、氷を入れて蒸らし' : '一投目、蒸らし';
-      else w = (NUMJP[row.idx]||row.idx)+'投目';
-      if(isLast) w += '、これで最後です';
-      speak(w);
-    }
   }
 
   // ---------- Timer engine (wall-clock) ----------
@@ -584,7 +555,6 @@
     if(T.raf){ cancelAnimationFrame(T.raf); T.raf=null; }
     releaseWake();
     ensureAudio(); chime('done'); haptic([0,80,50,80,50,120]);
-    if(state.audio==='voice') speak(T.recipe.mode==='ice'?'完成。サーバーを混ぜて、氷で冷やしてください':'完成です。最後まで落としきってください');
     $('timer').classList.add('done'); $('ringProg').style.strokeDashoffset=0;
     var ice=T.recipe.mode==='ice';
     $('ringCenter').innerHTML='<div class="done-emoji" aria-hidden="true">'+(ice?'🧊':'☕')+'</div><div class="target" style="font-size:30px;margin-top:10px;letter-spacing:0;">できあがり</div><div class="delta">'+(ice?'お湯'+fmt(T.recipe.water)+'g＋氷'+fmt(T.recipe.ice)+'g':'お湯 '+fmt(T.recipe.water)+'g・'+T.steps.length+'投')+'</div><div class="action">'+(ice?'サーバーを混ぜて急冷してどうぞ':'最後まで落としきってどうぞ')+'</div>';
@@ -605,8 +575,7 @@
     T.raf=requestAnimationFrame(tick);
   }
   function startTimer(){
-    try{speechSynthesis.cancel();}catch(e){} // clear any pending speech from a prior run
-    ensureAudio(); if(state.audio==='voice') primeVoice();
+    ensureAudio();
     T.recipe=recipe(state.mode);
     var b=buildSteps(T.recipe); T.steps=b.steps; T.total=b.total;
     T.running=true; T.paused=false; T.stepIdx=-1; T.brewStart=performance.now();
@@ -627,7 +596,7 @@
     else { ensureAudio(); T.brewStart+=(performance.now()-T.pauseAt); T.paused=false; $('pauseBtn').textContent='一時停止'; if(!T.raf) T.raf=requestAnimationFrame(tick); }
   }
   function openTimerUI(){ T.prevFocus=document.activeElement; $('timer').classList.add('show'); setInert(true); startTimer(); try{$('closeTimer').focus();}catch(e){} }
-  function closeTimerUI(){ T.running=false; T.paused=false; T.stepIdx=-1; if(T.raf){cancelAnimationFrame(T.raf);T.raf=null;} releaseWake(); try{speechSynthesis.cancel();}catch(e){} $('timer').classList.remove('show'); $('timer').classList.remove('done'); setInert(false); try{ if(T.prevFocus&&T.prevFocus.focus) T.prevFocus.focus(); }catch(e){} }
+  function closeTimerUI(){ T.running=false; T.paused=false; T.stepIdx=-1; if(T.raf){cancelAnimationFrame(T.raf);T.raf=null;} releaseWake(); $('timer').classList.remove('show'); $('timer').classList.remove('done'); setInert(false); try{ if(T.prevFocus&&T.prevFocus.focus) T.prevFocus.focus(); }catch(e){} }
   function setInert(on){ ['landing','setup','dock','a2hs'].forEach(function(id){ var el=$(id); if(!el)return; if(on){el.setAttribute('inert','');el.setAttribute('aria-hidden','true');} else {el.removeAttribute('inert');el.removeAttribute('aria-hidden');} }); }
   $('brewBtn').addEventListener('click',function(){ pushScreen({screen:'timer'}, showTimerOnly); });
   $('closeTimer').addEventListener('click', goBack);
@@ -635,7 +604,7 @@
   // ---------- Wake lock ----------
   function requestWake(){ try{ if('wakeLock' in navigator && !T.wakeLock){ navigator.wakeLock.request('screen').then(function(w){T.wakeLock=w; w.addEventListener('release',function(){T.wakeLock=null;});}).catch(function(){}); } }catch(e){} }
   function releaseWake(){ try{ if(T.wakeLock){T.wakeLock.release();T.wakeLock=null;} }catch(e){} }
-  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&T.running&&!T.paused){ ensureAudio(); if(state.audio==='voice'){ try{speechSynthesis.resume();}catch(e){} primeVoice(); } requestWake(); if(T.raf)cancelAnimationFrame(T.raf); T.raf=requestAnimationFrame(tick); } });
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&T.running&&!T.paused){ ensureAudio(); requestWake(); if(T.raf)cancelAnimationFrame(T.raf); T.raf=requestAnimationFrame(tick); } });
 
   // ---------- A2HS ----------
   (function(){
